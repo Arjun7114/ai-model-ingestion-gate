@@ -1,0 +1,40 @@
+# AI-Sentinel ingestion policy.
+# Each rule maps a finding type to an action: BLOCK, WARN, or ALLOW.
+# The most severe action triggered across all findings decides the gate.
+#
+# Actions:
+#   BLOCK - fail the gate (non-zero exit); model is not admitted.
+#   WARN  - surface the issue but allow the model through.
+#   ALLOW - explicitly ignore this finding type.
+
+version: 1
+
+rules:
+  # Model artifact risks
+  unsafe_serialization:
+    action: BLOCK
+    reason: "Pickle-based weights can execute arbitrary code on load."
+
+  no_recognized_weights:
+    action: WARN
+    reason: "No recognized weight files; the model may be incomplete."
+
+  # Dependency vulnerability risks, keyed by the highest severity present.
+  vulnerability_critical:
+    action: BLOCK
+    reason: "A CRITICAL dependency vulnerability was found."
+
+  vulnerability_high:
+    action: BLOCK
+    reason: "A HIGH dependency vulnerability was found."
+
+  vulnerability_medium:
+    action: WARN
+    reason: "A MEDIUM dependency vulnerability was found."
+
+  vulnerability_low:
+    action: WARN
+    reason: "A LOW dependency vulnerability was found."
+
+# Default action for any finding type not explicitly listed above.
+default_action: WARN
