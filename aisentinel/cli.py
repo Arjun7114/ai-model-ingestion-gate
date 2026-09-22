@@ -25,9 +25,8 @@ _TAG = {
     "LOW": "[LOW ]",
     "MEDIUM": "[WARN]",
     "HIGH": "[FAIL]",
-    "CRITICAL": "[FAIL]",
+    "CRITICAL": "[CRIT]",
 }
-
 
 @app.command()
 def scan(
