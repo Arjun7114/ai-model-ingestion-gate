@@ -1,7 +1,7 @@
 """Artifact scanner: inspect a model's files for unsafe serialization formats."""
 
 from dataclasses import dataclass, field
-from huggingface_hub import HfApi
+
 
 # File extensions that use Python pickle under the hood. Loading these can
 # execute arbitrary code, so they are the primary supply-chain risk.
@@ -33,13 +33,12 @@ def _extension(filename: str) -> str:
     return filename[dot:].lower() if dot != -1 else ""
 
 
-def scan_artifacts(model_id: str) -> ArtifactReport:
-    """Fetch a model's file list from the Hugging Face Hub and classify it."""
-    api = HfApi()
-    info = api.model_info(model_id, files_metadata=False)
-
-    files = [s.rfilename for s in info.siblings]
-    report = ArtifactReport(model_id=model_id, revision=info.sha, files=files)
+def scan_artifacts(source) -> ArtifactReport:
+    """Classify a resolved source's files by serialization safety."""
+    files = source.files
+    report = ArtifactReport(
+        model_id=source.identifier, revision=source.revision, files=files
+    )
 
     unsafe = [f for f in files if _extension(f) in UNSAFE_EXTENSIONS]
     safe = [f for f in files if _extension(f) in SAFE_EXTENSIONS]

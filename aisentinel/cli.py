@@ -1,5 +1,6 @@
 import typer
 
+from aisentinel.scanners.source import resolve_source
 from aisentinel.scanners.artifact import scan_artifacts
 from aisentinel.scanners.dependency import scan_dependencies
 
@@ -27,35 +28,32 @@ _TAG = {
 
 @app.command()
 def scan(
-    model: str = typer.Argument(..., help="Hugging Face model id, e.g. 'org/model'."),
+    model: str = typer.Argument(
+        ..., help="Hugging Face model id (e.g. 'org/model') or a local folder path."
+    ),
 ):
     """Scan a model's artifacts and dependencies, then print an ingestion report."""
     typer.echo("AI-SENTINEL — Model Ingestion Report")
-    typer.echo(f"Model:    {model}")
+    typer.echo(f"Target:   {model}")
 
     try:
-        artifact_report = scan_artifacts(model)
+        source = resolve_source(model)
     except Exception as exc:  # noqa: BLE001
-        typer.echo(f"[ERROR] Could not scan model artifacts: {exc}")
+        typer.echo(f"[ERROR] Could not resolve target: {exc}")
         raise typer.Exit(code=2)
 
-    typer.echo(f"Revision: {artifact_report.revision}")
-    typer.echo(f"Files:    {len(artifact_report.files)}")
+    typer.echo(f"Kind:     {source.kind}")
+    typer.echo(f"Revision: {source.revision}")
+    typer.echo(f"Files:    {len(source.files)}")
     typer.echo("")
 
     typer.echo("Artifacts")
-    for f in artifact_report.findings:
-        tag = _TAG.get(f.severity, "[????]")
-        typer.echo(f"  {tag} {f.check}: {f.message}")
+    for f in scan_artifacts(source).findings:
+        typer.echo(f"  {_TAG.get(f.severity, '[????]')} {f.check}: {f.message}")
 
     typer.echo("")
     typer.echo("Dependencies")
-    try:
-        dep_report = scan_dependencies(model)
-    except Exception as exc:  # noqa: BLE001
-        typer.echo(f"  [ERROR] Could not read dependencies: {exc}")
-        raise typer.Exit(code=2)
-
+    dep_report = scan_dependencies(source)
     if dep_report.dependencies:
         typer.echo(f"  Source: {dep_report.source_file}")
         for d in dep_report.dependencies:
