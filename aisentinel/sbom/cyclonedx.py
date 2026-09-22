@@ -56,7 +56,8 @@ def build_mlbom(source, dep_report, osv_report) -> dict:
             description=v.summary,
         )
         if affected is not None:
-            cdx_vuln.affects = [BomTarget(ref=str(affected.bom_ref))]
+            ref_value = getattr(affected.bom_ref, "value", None) or affected.bom_ref
+            cdx_vuln.affects = [BomTarget(ref=ref_value)]
         bom.vulnerabilities.add(cdx_vuln)
 
     # Serialize to CycloneDX 1.6 JSON. Suppress the incomplete-graph warning,
