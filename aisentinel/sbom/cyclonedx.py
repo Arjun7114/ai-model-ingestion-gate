@@ -1,6 +1,9 @@
 """Generate a CycloneDX ML-BOM from scan results."""
 
+import os
 import json
+import warnings
+
 from cyclonedx.model.bom import Bom
 from cyclonedx.model.component import Component, ComponentType
 from cyclonedx.model.vulnerability import Vulnerability as CdxVulnerability
@@ -10,13 +13,20 @@ from cyclonedx.schema import OutputFormat, SchemaVersion
 from packageurl import PackageURL
 
 
+def _clean_model_name(source) -> str:
+    """Use a clean basename for local paths; keep hub ids as-is."""
+    if source.kind == "local":
+        return os.path.basename(os.path.normpath(source.identifier))
+    return source.identifier
+
+
 def build_mlbom(source, dep_report, osv_report) -> dict:
     """Assemble a CycloneDX BOM (as a dict) describing the model and its deps."""
     bom = Bom()
 
     # The model itself is the primary component of this BOM.
     model_component = Component(
-        name=source.identifier,
+        name=_clean_model_name(source),
         type=ComponentType.MACHINE_LEARNING_MODEL,
         version=source.revision or "unknown",
     )
@@ -33,6 +43,8 @@ def build_mlbom(source, dep_report, osv_report) -> dict:
             purl=purl,
         )
         bom.components.add(comp)
+        # Register each dependency as a dependency of the root model component.
+        bom.register_dependency(model_component, [comp])
         dep_components[dep.name] = comp
 
     # Attach each OSV vulnerability to the component it affects.
@@ -44,13 +56,15 @@ def build_mlbom(source, dep_report, osv_report) -> dict:
             description=v.summary,
         )
         if affected is not None:
-            cdx_vuln.affects = [BomTarget(ref=affected.bom_ref.value)]
+            cdx_vuln.affects = [BomTarget(ref=str(affected.bom_ref))]
         bom.vulnerabilities.add(cdx_vuln)
 
-    # Serialize to a CycloneDX 1.6 JSON string, then back to a dict so the
-    # caller can either print it or write it to a file.
-    outputter = make_outputter(bom, OutputFormat.JSON, SchemaVersion.V1_6)
-    return json.loads(outputter.output_as_string())
+    # Serialize to CycloneDX 1.6 JSON. Suppress the incomplete-graph warning,
+    # which we address by registering dependencies above.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        outputter = make_outputter(bom, OutputFormat.JSON, SchemaVersion.V1_6)
+        return json.loads(outputter.output_as_string())
 
 
 def write_mlbom(bom_dict: dict, path: str) -> None:
