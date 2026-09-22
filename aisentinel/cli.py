@@ -4,6 +4,7 @@ from aisentinel.scanners.source import resolve_source
 from aisentinel.scanners.artifact import scan_artifacts
 from aisentinel.scanners.dependency import scan_dependencies
 from aisentinel.intel.osv import query_osv
+from aisentinel.sbom.cyclonedx import build_mlbom, write_mlbom
 
 app = typer.Typer(
     name="aisentinel",
@@ -31,6 +32,9 @@ _TAG = {
 def scan(
     model: str = typer.Argument(
         ..., help="Hugging Face model id (e.g. 'org/model') or a local folder path."
+    ),
+    sbom: str = typer.Option(
+        None, "--sbom", help="Write a CycloneDX ML-BOM to this path (e.g. out.cdx.json)."
     ),
 ):
     """Scan a model's artifacts, dependencies and known vulnerabilities."""
@@ -65,6 +69,7 @@ def scan(
 
     typer.echo("")
     typer.echo("Vulnerabilities (OSV)")
+    osv_report = None
     if not dep_report.dependencies:
         typer.echo("  [INFO] No dependencies to check.")
     else:
@@ -77,6 +82,22 @@ def scan(
                 typer.echo(f"  {tag} {v.package}=={v.version} {v.vuln_id}: {v.summary}")
         elif not osv_report.errors:
             typer.echo(f"  [INFO] No known vulnerabilities in {osv_report.queried} pinned dependencies.")
+
+    # Generate the ML-BOM if requested.
+    if sbom:
+        typer.echo("")
+        typer.echo("ML-BOM (CycloneDX)")
+        try:
+            from types import SimpleNamespace
+            osv_for_bom = osv_report or SimpleNamespace(vulnerabilities=[])
+            bom_dict = build_mlbom(source, dep_report, osv_for_bom)
+            write_mlbom(bom_dict, sbom)
+            n_comp = len(bom_dict.get("components", []))
+            n_vuln = len(bom_dict.get("vulnerabilities", []))
+            typer.echo(f"  [INFO] Wrote {sbom} ({n_comp} components, {n_vuln} vulnerabilities).")
+        except Exception as exc:  # noqa: BLE001
+            typer.echo(f"  [ERROR] Could not generate ML-BOM: {exc}")
+            raise typer.Exit(code=2)
 
 
 if __name__ == "__main__":
