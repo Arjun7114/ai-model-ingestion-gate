@@ -3,6 +3,7 @@ import typer
 from aisentinel.scanners.source import resolve_source
 from aisentinel.scanners.artifact import scan_artifacts
 from aisentinel.scanners.dependency import scan_dependencies
+from aisentinel.intel.osv import query_osv
 
 app = typer.Typer(
     name="aisentinel",
@@ -32,7 +33,7 @@ def scan(
         ..., help="Hugging Face model id (e.g. 'org/model') or a local folder path."
     ),
 ):
-    """Scan a model's artifacts and dependencies, then print an ingestion report."""
+    """Scan a model's artifacts, dependencies and known vulnerabilities."""
     typer.echo("AI-SENTINEL — Model Ingestion Report")
     typer.echo(f"Target:   {model}")
 
@@ -61,6 +62,21 @@ def scan(
             typer.echo(f"  - {d.name}{pin}")
     else:
         typer.echo(f"  [INFO] {dep_report.note}")
+
+    typer.echo("")
+    typer.echo("Vulnerabilities (OSV)")
+    if not dep_report.dependencies:
+        typer.echo("  [INFO] No dependencies to check.")
+    else:
+        osv_report = query_osv(dep_report.dependencies)
+        for err in osv_report.errors:
+            typer.echo(f"  [ERROR] {err}")
+        if osv_report.vulnerabilities:
+            for v in osv_report.vulnerabilities:
+                tag = _TAG.get(v.severity, "[????]")
+                typer.echo(f"  {tag} {v.package}=={v.version} {v.vuln_id}: {v.summary}")
+        elif not osv_report.errors:
+            typer.echo(f"  [INFO] No known vulnerabilities in {osv_report.queried} pinned dependencies.")
 
 
 if __name__ == "__main__":
