@@ -1,0 +1,32 @@
+name: AI-Sentinel Gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install AI-Sentinel
+        run: pip install -e .
+
+      - name: Gate should PASS on a clean model
+        run: aisentinel scan google/gemma-3-270m --policy policies/default.yaml
+
+      - name: Gate should BLOCK the vulnerable fixture
+        run: |
+          if aisentinel scan tests/fixtures/vulnerable-model --policy policies/default.yaml; then
+            echo "ERROR: gate did not block a known-bad model"
+            exit 1
+          else
+            echo "OK: gate correctly blocked the vulnerable model"
+          fi
