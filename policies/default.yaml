@@ -15,6 +15,14 @@ rules:
     action: BLOCK
     reason: "Pickle-based weights can execute arbitrary code on load."
 
+    malicious_opcode:
+    action: BLOCK
+    reason: "modelscan detected dangerous operators embedded in the model file."
+
+  pickle_inspected_clean:
+    action: WARN
+    reason: "Pickle format but no unsafe operators found; safetensors preferred."
+
   no_recognized_weights:
     action: WARN
     reason: "No recognized weight files; the model may be incomplete."

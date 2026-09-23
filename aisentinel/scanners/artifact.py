@@ -1,7 +1,9 @@
 """Artifact scanner: inspect a model's files for unsafe serialization formats."""
 
+import os
 from dataclasses import dataclass, field
 
+from aisentinel.scanners.opcode import scan_file_opcodes
 
 # File extensions that use Python pickle under the hood. Loading these can
 # execute arbitrary code, so they are the primary supply-chain risk.
@@ -34,7 +36,8 @@ def _extension(filename: str) -> str:
 
 
 def scan_artifacts(source) -> ArtifactReport:
-    """Classify a resolved source's files by serialization safety."""
+    """Classify a source's files by serialization safety, with deep opcode
+    inspection of pickle files when they are available on local disk."""
     files = source.files
     report = ArtifactReport(
         model_id=source.identifier, revision=source.revision, files=files
@@ -43,15 +46,51 @@ def scan_artifacts(source) -> ArtifactReport:
     unsafe = [f for f in files if _extension(f) in UNSAFE_EXTENSIONS]
     safe = [f for f in files if _extension(f) in SAFE_EXTENSIONS]
 
-    if unsafe:
-        report.findings.append(Finding(
-            check="unsafe_serialization",
-            severity="HIGH",
-            message=(
-                f"{len(unsafe)} pickle-based artifact(s) found: "
-                f"{', '.join(unsafe)}. These can execute code on load."
-            ),
-        ))
+    # Deep-scan pickle files when we can reach them on disk (local sources).
+    can_deep_scan = getattr(source, "kind", None) == "local" and getattr(
+        source, "_local_root", None
+    )
+
+    for f in unsafe:
+        if can_deep_scan:
+            full_path = os.path.join(source._local_root, f)
+            result = scan_file_opcodes(full_path)
+            if not result.scanned:
+                # Could not inspect — fail safe, treat as risky.
+                report.findings.append(Finding(
+                    check="unsafe_serialization",
+                    severity="HIGH",
+                    message=(
+                        f"{f}: pickle-based artifact; deep inspection "
+                        f"unavailable ({result.error}). Treated as risky."
+                    ),
+                ))
+            elif result.total_issues > 0:
+                sev = result.highest_severity or "HIGH"
+                report.findings.append(Finding(
+                    check="malicious_opcode",
+                    severity=sev,
+                    message=f"{f}: {result.detail}",
+                ))
+            else:
+                report.findings.append(Finding(
+                    check="pickle_inspected_clean",
+                    severity="MEDIUM",
+                    message=(
+                        f"{f}: pickle format, but modelscan found no unsafe "
+                        f"operators. Prefer safetensors."
+                    ),
+                ))
+        else:
+            # Remote source: we only have the file list, not the bytes.
+            report.findings.append(Finding(
+                check="unsafe_serialization",
+                severity="HIGH",
+                message=(
+                    f"{f}: pickle-based artifact (extension check). "
+                    f"Deep opcode inspection requires a local copy."
+                ),
+            ))
 
     if safe:
         report.findings.append(Finding(
