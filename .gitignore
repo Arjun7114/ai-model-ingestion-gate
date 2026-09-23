@@ -8,3 +8,14 @@ build/
 .pytest_cache/
 *.cdx.json
 .env
+deploy/build/
+deploy/lambda.zip
+# Terraform
+deploy/terraform/.terraform/
+deploy/terraform/*.tfstate
+deploy/terraform/*.tfstate.*
+deploy/terraform/terraform.tfvars
+deploy/terraform/.terraform.lock.hcl
+deploy/terraform/report-sample.json
+deploy/terraform/response.json
+deploy/terraform/*.json
