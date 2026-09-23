@@ -13,9 +13,9 @@ rules:
   # Model artifact risks
   unsafe_serialization:
     action: BLOCK
-    reason: "Pickle-based weights can execute arbitrary code on load."
+    reason: "Pickle-based weights (by format) can execute code on load; not deep-inspected."
 
-    malicious_opcode:
+  malicious_opcode:
     action: BLOCK
     reason: "modelscan detected dangerous operators embedded in the model file."
 

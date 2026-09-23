@@ -3,6 +3,7 @@ import typer
 from aisentinel.scanners.source import resolve_source
 from aisentinel.scanners.artifact import scan_artifacts
 from aisentinel.scanners.dependency import scan_dependencies
+from aisentinel.scanners.framework import scan_frameworks
 from aisentinel.intel.osv import query_osv
 from aisentinel.sbom.cyclonedx import build_mlbom, write_mlbom
 from aisentinel.policy.engine import load_policy, evaluate
@@ -27,6 +28,13 @@ _TAG = {
     "HIGH": "[FAIL]",
     "CRITICAL": "[CRIT]",
 }
+
+class _FrameworkDep:
+    """Minimal object matching what query_osv expects (.name, .version)."""
+    def __init__(self, name: str, version: str):
+        self.name = name
+        self.version = version
+
 
 @app.command()
 def scan(
@@ -86,6 +94,43 @@ def scan(
                 typer.echo(f"  {tag} {v.package}=={v.version} {v.vuln_id}: {v.summary}")
         elif not osv_report.errors:
             typer.echo(f"  [INFO] No known vulnerabilities in {osv_report.queried} pinned dependencies.")
+        # Framework provenance: versions the model declares it was built with.
+    typer.echo("")
+    typer.echo("Framework provenance (OSV)")
+    fw_report = scan_frameworks(source)
+    if not fw_report.frameworks:
+        typer.echo(f"  [INFO] {fw_report.note}")
+    else:
+        fw_deps = [_FrameworkDep(pkg, ver) for (pkg, ver, _raw) in fw_report.frameworks]
+        for pkg, ver, raw in fw_report.frameworks:
+            typer.echo(f"  Built with: {pkg}=={ver} (declared: {raw})")
+        fw_osv = query_osv(fw_deps)
+        for err in fw_osv.errors:
+            typer.echo(f"  [ERROR] {err}")
+        if fw_osv.vulnerabilities:
+            # Summarize by severity instead of dumping every advisory.
+            counts = {}
+            for v in fw_osv.vulnerabilities:
+                counts[v.severity] = counts.get(v.severity, 0) + 1
+            total = len(fw_osv.vulnerabilities)
+            breakdown = ", ".join(
+                f"{sev}:{counts[sev]}" for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+                if counts.get(sev)
+            )
+            worst = "CRITICAL" if counts.get("CRITICAL") else (
+                "HIGH" if counts.get("HIGH") else "lower")
+            tag = _TAG.get("CRITICAL" if counts.get("CRITICAL") else
+                           ("HIGH" if counts.get("HIGH") else "MEDIUM"), "[????]")
+            typer.echo(
+                f"  {tag} transformers/framework built-with version has {total} "
+                f"known advisories ({breakdown})."
+            )
+            typer.echo(
+                f"  [INFO] These reflect the version that produced the model "
+                f"(provenance), not necessarily your runtime."
+            )
+        elif not fw_osv.errors:
+            typer.echo(f"  [INFO] No known advisories for the declared framework versions.")
 
     # ML-BOM generation.
     if sbom:
