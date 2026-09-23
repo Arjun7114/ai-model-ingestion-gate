@@ -1,8 +1,13 @@
-"""Resolve a scan target (Hugging Face model id or local path) to files."""
+"""Resolve a scan target (Hugging Face model id or local path) to files.
+
+Uses a pure-Python Hugging Face REST client (no huggingface_hub dependency),
+so the scan path stays lightweight and portable for the cloud scanner.
+"""
 
 import os
 from dataclasses import dataclass
-from huggingface_hub import HfApi, hf_hub_download
+
+from aisentinel.intel.hf_api import get_model_info, fetch_file_text
 
 
 @dataclass
@@ -19,10 +24,9 @@ class ScanSource:
             full = os.path.join(self._local_root, filename)
             with open(full, "r", encoding="utf-8", errors="replace") as fh:
                 return fh.read()
-        # hub
-        path = hf_hub_download(repo_id=self.identifier, filename=filename)
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
-            return fh.read()
+        # hub — fetch the file over the HF REST API.
+        revision = self.revision or "main"
+        return fetch_file_text(self.identifier, filename, revision=revision)
 
 
 def resolve_source(identifier: str) -> ScanSource:
@@ -41,13 +45,11 @@ def resolve_source(identifier: str) -> ScanSource:
             _local_root=identifier,
         )
 
-    # Otherwise treat it as a Hub model id.
-    api = HfApi()
-    info = api.model_info(identifier, files_metadata=False)
-    files = [s.rfilename for s in info.siblings]
+    # Otherwise treat it as a Hub model id, resolved via the HF REST API.
+    info = get_model_info(identifier)
     return ScanSource(
         identifier=identifier,
         kind="hub",
-        revision=info.sha,
-        files=files,
+        revision=info["sha"],
+        files=info["files"],
     )
