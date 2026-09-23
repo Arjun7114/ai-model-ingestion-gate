@@ -251,6 +251,10 @@ Intentionally out of scope, so the project ships coherent pieces end-to-end rath
 
 Python · Typer (CLI) · pure-Python Hugging Face REST client · modelscan (pickle opcode analysis) · OSV API · cyclonedx-python-lib (CycloneDX 1.6) · PyYAML · GitHub Actions · AWS Lambda · EventBridge · S3 · SNS · Terraform
 
+## Security
+
+See [`docs/threat-model.md`](docs/threat-model.md) for what this tool defends against, what it deliberately does not, and its trust assumptions.
+
 ## License
 
 TBD
