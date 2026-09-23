@@ -1,5 +1,7 @@
 # AI Model Ingestion Gate
 
+![CI](https://github.com/Arjun7114/ai-model-ingestion-gate/actions/workflows/gate.yml/badge.svg)
+
 > A policy-driven CI gate that scans an AI model's artifacts and dependencies, emits a CycloneDX ML-BOM, and decides **PASS / WARN / BLOCK** before the model is allowed into deployment — plus a scheduled cloud scanner that continuously re-checks an approved model inventory as new CVEs are published.
 
 **Live demo:** [`sentinel-demo`](https://github.com/Arjun7114/sentinel-demo) — a project protected by this gate, where a pull request adding a vulnerable model is **automatically blocked** by branch protection. See the blocked pull request: [sentinel-demo PR #1](https://github.com/Arjun7114/sentinel-demo/pull/1).
