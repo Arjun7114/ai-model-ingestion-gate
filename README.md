@@ -1,6 +1,6 @@
 # AI Model Ingestion Gate
 
-> A policy-driven CI gate that scans an AI model's artifacts and dependencies, emits a CycloneDX ML-BOM, and decides \*\*PASS / WARN / BLOCK\*\* before the model is allowed into deployment — plus a scheduled cloud scanner that continuously re-checks an approved model inventory as new CVEs are published.
+> A policy-driven CI gate that scans an AI model's artifacts and dependencies, emits a CycloneDX ML-BOM, and decides **PASS / WARN / BLOCK** before the model is allowed into deployment — plus a scheduled cloud scanner that continuously re-checks an approved model inventory as new CVEs are published.
 
 **Live demo:** [`sentinel-demo`](https://github.com/Arjun7114/sentinel-demo) — a project protected by this gate, where a pull request adding a vulnerable model is **automatically blocked** by branch protection. See the blocked pull request: [sentinel-demo PR #1](https://github.com/Arjun7114/sentinel-demo/pull/1).
 
@@ -12,7 +12,7 @@
 
 1. **Artifact scan** — inspects each model file's **contents**, not just its extension. Pickle-based weights (`.bin`/`.pt`/`.pkl`) are run through [modelscan](https://github.com/protectai/modelscan)'s opcode analysis, which detects the dangerous `GLOBAL`/`REDUCE` operators used for code-execution-on-load. A clean pickle is distinguished from a weaponized one; only genuinely dangerous files are treated as critical.
 2. **Dependency scan** — extracts the model's declared Python dependencies (from a `requirements.txt` when present).
-3. **Framework-provenance scan** — reads the model's `config.json` and checks the framework version it was *built with* (e.g. `transformers\_version`) against OSV. This is a provenance signal, reported but never used to block (see the note below).
+3. **Framework-provenance scan** — reads the model's `config.json` and checks the framework version it was *built with* (e.g. `transformers_version`) against OSV. This is a provenance signal, reported but never used to block (see the note below).
 4. **Vulnerability correlation** — queries the live [OSV](https://osv.dev) database (no API key) for known CVEs in those dependencies and normalizes them to a severity scale.
 5. **ML-BOM** — emits a schema-valid **CycloneDX 1.6** bill of materials: the model as the primary component, dependencies as components, vulnerabilities linked to the components they affect.
 6. **Policy decision** — evaluates all findings against a YAML policy and returns a single **PASS / WARN / BLOCK** verdict, exiting non-zero on BLOCK so it can fail a CI build.
@@ -33,12 +33,12 @@ This project closes that gap: it decides **whether a model should be admitted at
 
 ```mermaid
 flowchart LR
-    A\[Model acquired] --> B\[Model served] --> C\[Model runtime I/O] --> D\[Detection / SOC]
+    A[Model acquired] --> B[Model served] --> C[Model runtime I/O] --> D[Detection / SOC]
 
-    A -.covered by.-> AG\[\*\*AI Model Ingestion Gate\*\*<br/>this project]
-    B -.covered by.-> VL\[vllm-inference-stack]
-    C -.covered by.-> GW\[llm-guardrails-gateway]
-    D -.covered by.-> CX\[Cortex-Chain / aiops-log-anomaly]
+    A -.covered by.-> AG[**AI Model Ingestion Gate**<br/>this project]
+    B -.covered by.-> VL[vllm-inference-stack]
+    C -.covered by.-> GW[llm-guardrails-gateway]
+    D -.covered by.-> CX[Cortex-Chain / aiops-log-anomaly]
 
     style AG fill:#1e2327,color:#fff,stroke:#4a9,stroke-width:2px
 ```
@@ -49,18 +49,18 @@ Each control point secures a different stage of a model's life. This project own
 
 ```mermaid
 flowchart TD
-    SRC\["Model source<br/>(Hugging Face id or local folder)"] --> ART\[Artifact Scanner]
-    SRC --> DEP\[Dependency Scanner]
-    SRC --> FW\[Framework-Provenance Scanner]
-    DEP --> OSV\[OSV Vulnerability Correlation]
+    SRC["Model source<br/>(Hugging Face id or local folder)"] --> ART[Artifact Scanner]
+    SRC --> DEP[Dependency Scanner]
+    SRC --> FW[Framework-Provenance Scanner]
+    DEP --> OSV[OSV Vulnerability Correlation]
     FW --> OSV
-    ART --> BOM\[CycloneDX ML-BOM]
+    ART --> BOM[CycloneDX ML-BOM]
     DEP --> BOM
     OSV --> BOM
-    ART --> POL\[Policy Engine]
+    ART --> POL[Policy Engine]
     OSV --> POL
     POL --> VERDICT{PASS / WARN / BLOCK}
-    VERDICT -->|BLOCK = non-zero exit| CI\[GitHub Action / CI gate]
+    VERDICT -->|BLOCK = non-zero exit| CI[GitHub Action / CI gate]
     VERDICT -->|PASS| CI
 ```
 
@@ -102,7 +102,7 @@ Target:   tests/fixtures/vulnerable-model
 Kind:     local
 
 Artifacts
-  \[FAIL] unsafe\_serialization: 1 pickle-based artifact(s) found: pytorch\_model.bin.
+  [FAIL] unsafe_serialization: 1 pickle-based artifact(s) found: pytorch_model.bin.
 
 Dependencies
   - requests==2.19.0
@@ -110,13 +110,13 @@ Dependencies
   - jinja2==2.10
 
 Vulnerabilities (OSV)
-  \[CRIT] pyyaml==5.1 GHSA-3pqx-4fqf-j49f: Deserialization of Untrusted Data in PyYAML
+  [CRIT] pyyaml==5.1 GHSA-3pqx-4fqf-j49f: Deserialization of Untrusted Data in PyYAML
   ... (further findings) ...
 
 Policy Decision
-  \[BLOCK] unsafe\_serialization: Pickle-based weights can execute arbitrary code on load.
-  \[BLOCK] vulnerability\_high: A HIGH dependency vulnerability was found.
-  \[BLOCK] vulnerability\_critical: A CRITICAL dependency vulnerability was found.
+  [BLOCK] unsafe_serialization: Pickle-based weights can execute arbitrary code on load.
+  [BLOCK] vulnerability_high: A HIGH dependency vulnerability was found.
+  [BLOCK] vulnerability_critical: A CRITICAL dependency vulnerability was found.
 
   DECISION: BLOCK
 ```
@@ -129,11 +129,11 @@ The [`sentinel-demo`](https://github.com/Arjun7114/sentinel-demo) repository is 
 
 **A pull request adding a vulnerable model is blocked:**
 
-!\[Pull request blocked by the gate](docs/images/pr-blocked.png)
+![Pull request blocked by the gate](docs/images/pr-blocked.png)
 
 **The gate's output on the CI run — a critical PyYAML CVE and a BLOCK decision:**
 
-!\[Gate run output showing BLOCK decision](docs/images/gate-output.png)
+![Gate run output showing BLOCK decision](docs/images/gate-output.png)
 
 ## Continuous re-scanning (cloud scanner)
 
@@ -143,9 +143,9 @@ The `deploy/` directory contains a **scheduled cloud scanner** that closes this 
 
 ```mermaid
 flowchart LR
-    EB\[EventBridge<br/>daily schedule] --> L\[Lambda<br/>ai-sentinel-scanner]
-    L --> S3\[(S3<br/>reports)]
-    L -->|HIGH / CRITICAL| SNS\[SNS → email alert]
+    EB[EventBridge<br/>daily schedule] --> L[Lambda<br/>ai-sentinel-scanner]
+    L --> S3[(S3<br/>reports)]
+    L -->|HIGH / CRITICAL| SNS[SNS → email alert]
 ```
 
 Design decisions worth noting:
@@ -159,7 +159,7 @@ Each scan writes a structured report per model — artifacts, declared dependenc
 
 
 
-\*\*Reports written to S3 by the scheduled scanner:\*\*
+**Reports written to S3 by the scheduled scanner:**
 
 
 
@@ -176,7 +176,7 @@ Measured against the project's test fixture, real Hugging Face models, the live 
 |Scanner types integrated|4 — artifact opcode inspection, dependency, framework provenance, vulnerability|
 |Pickle inspection|modelscan opcode analysis; distinguishes a clean pickle from a malicious one|
 |Real model check (`gpt2`)|pickle verified clean → `WARN`, not a blanket fail|
-|Framework provenance|reads `transformers\_version` from `config.json`, correlates against OSV (informational)|
+|Framework provenance|reads `transformers_version` from `config.json`, correlates against OSV (informational)|
 |CVEs correlated on the vulnerable fixture|28, from the live OSV database|
 |Highest severity detected|CRITICAL (PyYAML deserialization / RCE)|
 |Bill-of-materials format|CycloneDX 1.6, schema-valid, vulnerabilities linked to components|
@@ -195,15 +195,15 @@ Policy is declarative YAML — the same mental model as admission policy in Kube
 ```yaml
 version: 1
 rules:
-  unsafe\_serialization:   { action: BLOCK }   # pickle by format (not deep-inspected)
-  malicious\_opcode:       { action: BLOCK }   # modelscan found dangerous operators
-  pickle\_inspected\_clean: { action: WARN }    # pickle, but verified clean by modelscan
-  vulnerability\_critical: { action: BLOCK }
-  vulnerability\_high:     { action: BLOCK }
-  vulnerability\_medium:   { action: WARN }
-  vulnerability\_low:      { action: WARN }
-  no\_recognized\_weights:  { action: WARN }
-default\_action: WARN
+  unsafe_serialization:   { action: BLOCK }   # pickle by format (not deep-inspected)
+  malicious_opcode:       { action: BLOCK }   # modelscan found dangerous operators
+  pickle_inspected_clean: { action: WARN }    # pickle, but verified clean by modelscan
+  vulnerability_critical: { action: BLOCK }
+  vulnerability_high:     { action: BLOCK }
+  vulnerability_medium:   { action: WARN }
+  vulnerability_low:      { action: WARN }
+  no_recognized_weights:  { action: WARN }
+default_action: WARN
 ```
 
 See [`policies/default.yaml`](policies/default.yaml).
@@ -226,14 +226,14 @@ This project reuses the policy-as-code thinking from the Kyverno work, the fail-
 
 **v1 — the ingestion gate (complete)**
 
-* \[x] Artifact scanner with modelscan opcode inspection (clean vs. malicious pickle)
-* \[x] Dependency scanner
-* \[x] Framework-provenance scanner (declared framework version vs. OSV)
-* \[x] OSV vulnerability correlation
-* \[x] CycloneDX ML-BOM generation
-* \[x] Policy engine (PASS / WARN / BLOCK)
-* \[x] GitHub Action + demo repo with an enforced, branch-protected block
-* \[x] Scheduled cloud scanner (Terraform: Lambda + EventBridge + S3 + SNS)
+* [x] Artifact scanner with modelscan opcode inspection (clean vs. malicious pickle)
+* [x] Dependency scanner
+* [x] Framework-provenance scanner (declared framework version vs. OSV)
+* [x] OSV vulnerability correlation
+* [x] CycloneDX ML-BOM generation
+* [x] Policy engine (PASS / WARN / BLOCK)
+* [x] GitHub Action + demo repo with an enforced, branch-protected block
+* [x] Scheduled cloud scanner (Terraform: Lambda + EventBridge + S3 + SNS)
 
 **Deliberately deferred (not yet built)**
 
